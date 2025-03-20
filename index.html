@@ -727,7 +727,19 @@
 
                 if (!response.ok) throw new Error(`خطا در پاسخ Gemini: ${response.status}`);
                 const data = await response.json();
-                resultText.textContent = data.candidates[0].content.parts[0].text || 'متن تولید نشد';
+                const fullText = data.candidates[0].content.parts[0].text || 'متن تولید نشد';
+
+                // شبیه‌سازی استریم برای نمایش تدریجی
+                let currentIndex = 0;
+                resultText.textContent = '';
+                const typeText = setInterval(() => {
+                    if (currentIndex < fullText.length) {
+                        resultText.textContent += fullText[currentIndex];
+                        currentIndex++;
+                    } else {
+                        clearInterval(typeText); // توقف تایپ وقتی متن کامل شد
+                    }
+                }, 20); // سرعت تایپ: 20 میلی‌ثانیه برای هر کاراکتر
             }
 
             async function generateWithOpenRouter(prompt) {
@@ -741,11 +753,14 @@
                     body: JSON.stringify({
                         model: 'openai/gpt-3.5-turbo',
                         messages: [{ role: 'user', content: prompt }],
-                        max_tokens: selectedLength === 'short' ? 200 : (selectedLength === 'medium' ? 800 : 1200),
+                        max_tokens: 4000, // حداکثر توکن برای اطمینان از تکمیل متن
+                        temperature: 0.7,
                         stream: true
                     }),
                     signal: abortController.signal
                 });
+
+                if (!response.ok) throw new Error(`خطا در پاسخ OpenRouter: ${response.status}`);
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
@@ -761,9 +776,13 @@
                         if (line.startsWith('data: ')) {
                             const data = line.slice(6);
                             if (data === '[DONE]') continue;
-                            const parsed = JSON.parse(data);
-                            fullText += parsed.choices[0].delta.content || '';
-                            resultText.textContent = fullText;
+                            try {
+                                const parsed = JSON.parse(data);
+                                fullText += parsed.choices[0].delta.content || '';
+                                resultText.textContent = fullText;
+                            } catch (e) {
+                                console.error('خطا در پارシング استریم OpenRouter:', e);
+                            }
                         }
                     }
                 }
