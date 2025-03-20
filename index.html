@@ -6,6 +6,7 @@
     <title>سامانه نویسنده هوشمند</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         @font-face {
             font-family: 'B Titr';
@@ -52,17 +53,8 @@
         }
 
         [data-color="blue"] { --primary-color: #0d6efd; --primary-hover: #0b5ed7; }
-        [data-color="indigo"] { --primary-color: #6610f2; --primary-hover: #5b0cdd; }
-        [data-color="purple"] { --primary-color: #6f42c1; --primary-hover: #643ab0; }
-        [data-color="pink"] { --primary-color: #d63384; --primary-hover: #c42e76; }
         [data-color="red"] { --primary-color: #dc3545; --primary-hover: #c82333; }
-        [data-color="orange"] { --primary-color: #fd7e14; --primary-hover: #e96b02; }
-        [data-color="yellow"] { --primary-color: #ffc107; --primary-hover: #e0a800; }
         [data-color="green"] { --primary-color: #198754; --primary-hover: #157347; }
-        [data-color="teal"] { --primary-color: #20c997; --primary-hover: #1ba87e; }
-        [data-color="cyan"] { --primary-color: #0dcaf0; --primary-hover: #0bb2d4; }
-        [data-color="gray"] { --primary-color: #6c757d; --primary-hover: #5a6268; }
-        [data-color="dark"] { --primary-color: #343a40; --primary-hover: #23272b; }
 
         body {
             font-family: 'Vazirmatn', 'B Nazanin', 'Tahoma', sans-serif;
@@ -93,7 +85,7 @@
 
         .card-header {
             border-bottom: 1px solid var(--border-color);
-            background-color: var(--card-bg) !important;
+            background-color: var(--card-bg);
         }
 
         .btn-outline-secondary {
@@ -139,7 +131,7 @@
             white-space: pre-wrap;
             font-size: 0.95rem;
             line-height: 1.8;
-            background-color: var(--result-bg) !important;
+            background-color: var(--result-bg);
         }
 
         .format-btn.active, .tone-btn.active, .length-btn.active, .language-btn.active, .model-btn.active {
@@ -160,6 +152,13 @@
         [data-theme="dark"] .history-item:hover { background-color: rgba(255, 255, 255, 0.05); }
         .history-item:first-child { border-top: none; }
         .badge { font-weight: normal; }
+
+        .highlight {
+            background-color: #ffff99;
+            font-size: 1.1rem;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
 
         .theme-switcher {
             position: fixed;
@@ -215,7 +214,7 @@
         [data-theme="dark"] small { color: #ced4da !important; }
         [data-theme="dark"] .btn-outline-danger { color: #f8d7da; border-color: #dc3545; }
         [data-theme="dark"] .btn-outline-primary { color: #cfe2ff; border-color: var(--primary-color); }
-        [data-theme="dark"] .btn-outline-success { color: #AMMAd7dd; border-color: #198754; }
+        [data-theme="dark"] .btn-outline-success { color: #d1e7dd; border-color: #198754; }
         [data-theme="dark"] .btn-outline-secondary { color: #e9ecef; border-color: #6c757d; }
         [data-theme="dark"] .card-header h5,
         [data-theme="dark"] .card-header h1,
@@ -228,6 +227,7 @@
             background-color: var(--input-bg);
             border-color: var(--border-color);
         }
+        [data-theme="dark"] .bg-light { background-color: var(--result-bg) !important; }
 
         .container {
             padding: 15px;
@@ -320,6 +320,21 @@
 
                         <div class="mb-4">
                             <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-gear me-2"></i>
+                                <h5 class="mb-0">تنظیمات پیشرفته</h5>
+                            </div>
+                            <div class="mb-2">
+                                <label for="creativity" class="form-label small">درجه خلاقیت (0 تا 2): <span id="creativity-value">0.5</span></label>
+                                <input type="range" id="creativity" class="form-range" min="0" max="2" step="0.01" value="0.5">
+                            </div>
+                            <div>
+                                <label for="max-words" class="form-label small">حداکثر کلمات:</label>
+                                <input type="number" id="max-words" class="form-control" min="50" value="500">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="d-flex align-items-center mb-2">
                                 <i class="bi bi-translate me-2"></i>
                                 <h5 class="mb-0">زبان</h5>
                             </div>
@@ -353,6 +368,7 @@
 
                         <div class="d-grid gap-2">
                             <button id="generate-btn" class="btn btn-primary py-3 fw-bold">ایجاد پیش‌نویس</button>
+                            <button id="compare-btn" class="btn btn-outline-primary py-2">مقایسه مدل‌ها</button>
                         </div>
 
                         <div class="mt-3 d-flex align-items-center">
@@ -367,10 +383,17 @@
                 <div id="result-container" class="card shadow-sm mt-4 d-none">
                     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">نتیجه:</h5>
-                        <button id="copy-btn" class="btn btn-sm btn-outline-secondary"><i class="bi bi-clipboard"></i> کپی</button>
+                        <div>
+                            <button id="copy-btn" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-clipboard"></i> کپی</button>
+                            <button id="download-pdf-btn" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+                            <button id="download-doc-btn" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-file-word"></i> Word</button>
+                            <button id="analyze-btn" class="btn btn-sm btn-outline-secondary"><i class="bi bi-bar-chart"></i> تحلیل</button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div id="result-text" class="p-3 bg-light rounded"></div>
+                        <div id="comparison-results" class="mt-3 d-none"></div>
+                        <div id="analysis-results" class="mt-3 text-muted small d-none"></div>
                     </div>
                 </div>
             </div>
@@ -379,6 +402,7 @@
                 <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">تاریخچه</h5>
                     <div>
+                        <input type="text" id="history-search" class="form-control form-control-sm d-inline-block w-auto me-2" placeholder="جستجو...">
                         <button id="backup-history-btn" class="btn btn-sm btn-outline-success me-2"><i class="bi bi-download"></i> بکاپ</button>
                         <button id="restore-history-btn" class="btn btn-sm btn-outline-success me-2"><i class="bi bi-upload"></i> بازیابی</button>
                         <button id="clear-history-btn" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> پاک کردن</button>
@@ -409,9 +433,15 @@
         document.addEventListener('DOMContentLoaded', function() {
             const topicInput = document.getElementById('topic');
             const generateBtn = document.getElementById('generate-btn');
+            const compareBtn = document.getElementById('compare-btn');
             const resultContainer = document.getElementById('result-container');
             const resultText = document.getElementById('result-text');
+            const comparisonResults = document.getElementById('comparison-results');
+            const analysisResults = document.getElementById('analysis-results');
             const copyBtn = document.getElementById('copy-btn');
+            const downloadPdfBtn = document.getElementById('download-pdf-btn');
+            const downloadDocBtn = document.getElementById('download-doc-btn');
+            const analyzeBtn = document.getElementById('analyze-btn');
             const statusIndicator = document.getElementById('status-indicator');
             const connectionText = document.getElementById('connection-text');
             const formatBtns = document.querySelectorAll('.format-btn');
@@ -421,10 +451,14 @@
             const modelBtns = document.querySelectorAll('.model-btn');
             const verifyApiBtns = document.querySelectorAll('.verify-api-btn');
             const historyList = document.getElementById('history-list');
+            const historySearch = document.getElementById('history-search');
             const clearHistoryBtn = document.getElementById('clear-history-btn');
             const backupHistoryBtn = document.getElementById('backup-history-btn');
             const restoreHistoryBtn = document.getElementById('restore-history-btn');
             const noHistoryMessage = document.getElementById('no-history-message');
+            const creativityInput = document.getElementById('creativity');
+            const creativityValue = document.getElementById('creativity-value');
+            const maxWordsInput = document.getElementById('max-words');
             const themeToggle = document.getElementById('theme-toggle');
             const themeIcon = document.getElementById('theme-icon');
             const colorOptions = document.getElementById('color-options');
@@ -452,12 +486,16 @@
                 'openrouter': 'https://openrouter.ai/api/v1/chat/completions'
             };
 
-            // Load saved API keys into inputs
+            const { jsPDF } = window.jspdf;
+
             document.getElementById('api-key-gemini').value = apiKeys['gemini'];
             document.getElementById('api-key-openrouter').value = apiKeys['openrouter'];
 
-            // Initial connection check
             checkAllConnections();
+
+            creativityInput.addEventListener('input', function() {
+                creativityValue.textContent = this.value;
+            });
 
             async function checkConnection(model) {
                 const statusDot = document.getElementById(`status-${model}`);
@@ -595,21 +633,35 @@
             });
 
             generateBtn.addEventListener('click', async function() {
+                await generateText(false);
+            });
+
+            compareBtn.addEventListener('click', async function() {
+                await generateText(true);
+            });
+
+            async function generateText(compareMode = false) {
                 const topic = topicInput.value.trim();
                 if (!topic || !selectedFormat || !selectedTone || !selectedLength) {
                     alert('لطفاً همه گزینه‌ها را پر کنید');
                     return;
                 }
 
-                const isConnected = selectedModel === 'lm-studio' ? isLmConnected : 
-                                   selectedModel === 'gemini' ? isGeminiConnected : 
-                                   isOpenRouterConnected;
-                if (!isConnected) {
-                    alert('اتصال به مدل انتخاب‌شده برقرار نیست.');
+                const creativity = parseFloat(creativityInput.value);
+                const maxWords = parseInt(maxWordsInput.value);
+
+                const modelsToUse = compareMode ? ['lm-studio', 'gemini', 'openrouter'].filter(model => 
+                    (model === 'lm-studio' && isLmConnected) || 
+                    (model === 'gemini' && isGeminiConnected) || 
+                    (model === 'openrouter' && isOpenRouterConnected)) : [selectedModel];
+
+                if (modelsToUse.length === 0) {
+                    alert('هیچ مدلی متصل نیست.');
                     return;
                 }
 
                 generateBtn.disabled = true;
+                compareBtn.disabled = true;
                 generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> در حال تولید...';
 
                 const formatNames = {
@@ -646,47 +698,34 @@
                 };
 
                 const prompt = selectedLanguage === 'fa' ?
-                    `موضوع: ${topic}\nقالب: ${formatNames[selectedFormat].fa}\nلحن: ${toneNames[selectedTone].fa}\nطول: ${lengthDescriptions[selectedLength].fa}\n\nلطفاً یک ${formatNames[selectedFormat].fa} با لحن ${toneNames[selectedTone].fa} و طول ${lengthDescriptions[selectedLength].fa} درباره موضوع "${topic}" به زبان فارسی بنویسید.` :
-                    `Topic: ${topic}\nFormat: ${formatNames[selectedFormat].en}\nTone: ${toneNames[selectedTone].en}\nLength: ${lengthDescriptions[selectedLength].en}\n\nPlease write a ${formatNames[selectedFormat].en} with a ${toneNames[selectedTone].en} tone and ${lengthDescriptions[selectedLength].en} about the topic "${topic}" in ${languageNames[selectedLanguage]}.`;
+                    `موضوع: ${topic}\nقالب: ${formatNames[selectedFormat].fa}\nلحن: ${toneNames[selectedTone].fa}\nطول: ${lengthDescriptions[selectedLength].fa}\nحداکثر کلمات: ${maxWords}\n\nلطفاً یک ${formatNames[selectedFormat].fa} با لحن ${toneNames[selectedTone].fa} و طول ${lengthDescriptions[selectedLength].fa} درباره موضوع "${topic}" به زبان فارسی بنویسید.` :
+                    `Topic: ${topic}\nFormat: ${formatNames[selectedFormat].en}\nTone: ${toneNames[selectedTone].en}\nLength: ${lengthDescriptions[selectedLength].en}\nMax words: ${maxWords}\n\nPlease write a ${formatNames[selectedFormat].en} with a ${toneNames[selectedTone].en} tone and ${lengthDescriptions[selectedLength].en} about the topic "${topic}" in ${languageNames[selectedLanguage]}.`;
 
                 resultText.textContent = '';
+                comparisonResults.innerHTML = '';
+                comparisonResults.classList.add('d-none');
                 resultContainer.classList.remove('d-none');
                 resultContainer.scrollIntoView({ behavior: 'smooth' });
 
                 abortController = new AbortController();
 
                 try {
-                    if (selectedModel === 'lm-studio') {
-                        await generateWithLmStudio(prompt);
+                    if (compareMode) {
+                        const results = await Promise.all(modelsToUse.map(async model => {
+                            const text = await generateWithModel(model, prompt, creativity, maxWords);
+                            return { model, text };
+                        }));
+                        displayComparison(results);
+                    } else {
+                        const text = await generateWithModel(selectedModel, prompt, creativity, maxWords);
+                        resultText.textContent = text;
                         saveToHistory({
                             topic: topic,
                             format: selectedFormat,
                             tone: selectedTone,
                             length: selectedLength,
                             language: selectedLanguage,
-                            content: resultText.textContent,
-                            timestamp: new Date().toISOString()
-                        });
-                    } else if (selectedModel === 'gemini') {
-                        await generateWithGemini(prompt);
-                        saveToHistory({
-                            topic: topic,
-                            format: selectedFormat,
-                            tone: selectedTone,
-                            length: selectedLength,
-                            language: selectedLanguage,
-                            content: resultText.textContent,
-                            timestamp: new Date().toISOString()
-                        });
-                    } else if (selectedModel === 'openrouter') {
-                        await generateWithOpenRouter(prompt);
-                        saveToHistory({
-                            topic: topic,
-                            format: selectedFormat,
-                            tone: selectedTone,
-                            length: selectedLength,
-                            language: selectedLanguage,
-                            content: resultText.textContent,
+                            content: text,
                             timestamp: new Date().toISOString()
                         });
                     }
@@ -694,18 +733,29 @@
                     resultText.textContent = `خطا در تولید متن: ${error.message}`;
                 } finally {
                     generateBtn.disabled = false;
+                    compareBtn.disabled = false;
                     generateBtn.textContent = 'ایجاد پیش‌نویس';
                 }
-            });
+            }
 
-            async function generateWithLmStudio(prompt) {
+            async function generateWithModel(model, prompt, creativity, maxWords) {
+                if (model === 'lm-studio') {
+                    return await generateWithLmStudio(prompt, creativity, maxWords);
+                } else if (model === 'gemini') {
+                    return await generateWithGemini(prompt, creativity, maxWords);
+                } else if (model === 'openrouter') {
+                    return await generateWithOpenRouter(prompt, creativity, maxWords);
+                }
+            }
+
+            async function generateWithLmStudio(prompt, creativity, maxWords) {
                 const response = await fetch(apiEndpoints['lm-studio'], {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         prompt: prompt,
-                        max_tokens: selectedLength === 'short' ? 200 : (selectedLength === 'medium' ? 800 : 1200),
-                        temperature: 0.7,
+                        max_tokens: maxWords * 2,
+                        temperature: creativity,
                         stream: true
                     }),
                     signal: abortController.signal
@@ -727,14 +777,16 @@
                             if (data === '[DONE]') continue;
                             const parsed = JSON.parse(data);
                             fullText += parsed.choices[0].text || '';
+                            if (!comparisonResults.classList.contains('d-none')) continue;
                             resultText.textContent = fullText;
                         }
                     }
                 }
                 currentStream = null;
+                return fullText;
             }
 
-            async function generateWithGemini(prompt) {
+            async function generateWithGemini(prompt, creativity, maxWords) {
                 const apiKey = apiKeys['gemini'];
                 const response = await fetch(`${apiEndpoints['gemini']}?key=${apiKey}`, {
                     method: 'POST',
@@ -747,9 +799,14 @@
 
                 if (!response.ok) throw new Error(`خطا در پاسخ Gemini: ${response.status}`);
                 const data = await response.json();
-                const fullText = data.candidates[0].content.parts[0].text || 'متن تولید نشد';
+                let fullText = data.candidates[0].content.parts[0].text || 'متن تولید نشد';
 
-                // شبیه‌سازی استریم برای نمایش تدریجی
+                if (fullText.split(' ').length > maxWords) {
+                    fullText = fullText.split(' ').slice(0, maxWords).join(' ');
+                }
+
+                if (!comparisonResults.classList.contains('d-none')) return fullText;
+
                 return new Promise((resolve) => {
                     let currentIndex = 0;
                     resultText.textContent = '';
@@ -759,13 +816,13 @@
                             currentIndex++;
                         } else {
                             clearInterval(typeText);
-                            resolve();
+                            resolve(fullText);
                         }
                     }, 20);
                 });
             }
 
-            async function generateWithOpenRouter(prompt) {
+            async function generateWithOpenRouter(prompt, creativity, maxWords) {
                 const apiKey = apiKeys['openrouter'];
                 const response = await fetch(apiEndpoints['openrouter'], {
                     method: 'POST',
@@ -776,8 +833,8 @@
                     body: JSON.stringify({
                         model: 'openai/gpt-3.5-turbo',
                         messages: [{ role: 'user', content: prompt }],
-                        max_tokens: 4000,
-                        temperature: 0.7,
+                        max_tokens: maxWords * 2,
+                        temperature: creativity,
                         stream: true
                     }),
                     signal: abortController.signal
@@ -802,6 +859,7 @@
                             try {
                                 const parsed = JSON.parse(data);
                                 fullText += parsed.choices[0].delta.content || '';
+                                if (!comparisonResults.classList.contains('d-none')) continue;
                                 resultText.textContent = fullText;
                             } catch (e) {
                                 console.error('خطا در پار싱 استریم OpenRouter:', e);
@@ -810,6 +868,17 @@
                     }
                 }
                 currentStream = null;
+                return fullText;
+            }
+
+            function displayComparison(results) {
+                comparisonResults.classList.remove('d-none');
+                comparisonResults.innerHTML = results.map(result => `
+                    <div class="mb-3">
+                        <h6>${result.model}</h6>
+                        <div class="p-3 bg-light rounded">${result.text}</div>
+                    </div>
+                `).join('');
             }
 
             copyBtn.addEventListener('click', function() {
@@ -820,6 +889,50 @@
                         setTimeout(() => { copyBtn.innerHTML = originalText; }, 2000);
                     })
                     .catch(err => alert('کپی متن با خطا مواجه شد.'));
+            });
+
+            downloadPdfBtn.addEventListener('click', function() {
+                const doc = new jsPDF();
+                doc.addFileToVFS('Amiri-Regular.ttf', 'https://cdn.fontcdn.ir/Font/Persian/Amiri/Amiri-Regular.ttf');
+                doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+                doc.setFont('Amiri');
+                doc.setFontSize(12);
+                const textLines = doc.splitTextToSize(resultText.textContent, 180);
+                let y = 10;
+                textLines.forEach(line => {
+                    doc.text(line, 190, y, { align: 'right' });
+                    y += 7;
+                    if (y > 280) {
+                        doc.addPage();
+                        y = 10;
+                    }
+                });
+                doc.save('generated_text.pdf');
+            });
+
+            downloadDocBtn.addEventListener('click', function() {
+                const blob = new Blob([`\ufeff${resultText.textContent}`], { type: 'application/msword' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'generated_text.doc';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+
+            analyzeBtn.addEventListener('click', function() {
+                const text = resultText.textContent;
+                const wordCount = text.split(/\s+/).length;
+                const charCount = text.length;
+                const sentenceCount = text.split(/[.!?]+/).length - 1;
+                analysisResults.innerHTML = `
+                    تعداد کلمات: ${wordCount}<br>
+                    تعداد کاراکترها: ${charCount}<br>
+                    تعداد جمله‌ها: ${sentenceCount}
+                `;
+                analysisResults.classList.remove('d-none');
             });
 
             topicInput.addEventListener('keydown', function(event) {
@@ -843,6 +956,11 @@
                 restoreHistory();
             });
 
+            historySearch.addEventListener('input', function() {
+                const query = this.value.trim().toLowerCase();
+                renderHistory(query);
+            });
+
             function loadHistory() {
                 const savedHistory = localStorage.getItem('textGeneratorHistory');
                 if (savedHistory) {
@@ -858,13 +976,20 @@
                 renderHistory();
             }
 
-            function renderHistory() {
+            function renderHistory(searchQuery = '') {
                 if (historyItems.length === 0) {
                     noHistoryMessage.classList.remove('d-none');
+                    historyList.innerHTML = '';
                     return;
                 }
                 noHistoryMessage.classList.add('d-none');
                 historyList.innerHTML = '';
+                const filteredItems = searchQuery ? 
+                    historyItems.filter(item => 
+                        item.topic.toLowerCase().includes(searchQuery) || 
+                        item.content.toLowerCase().includes(searchQuery)) : 
+                    historyItems;
+
                 const formatNames = {
                     'essay': { fa: 'انشا', en: 'essay' },
                     'paragraph': { fa: 'پاراگراف', en: 'paragraph' },
@@ -886,14 +1011,18 @@
                     'humorous': { fa: 'خنده‌دار', en: 'humorous' }
                 };
 
-                historyItems.forEach((item, index) => {
+                filteredItems.forEach((item, index) => {
                     const historyItem = document.createElement('div');
                     historyItem.className = 'list-group-item history-item';
                     const date = new Date(item.timestamp);
                     const formattedDate = `${date.toLocaleDateString('fa-IR')} ${date.toLocaleTimeString('fa-IR')}`;
                     const formatName = item.language === 'fa' ? formatNames[item.format]?.fa : formatNames[item.format]?.en;
                     const toneName = item.language === 'fa' ? toneNames[item.tone]?.fa : toneNames[item.tone]?.en;
-                    const contentPreview = item.content.substring(0, 100) + (item.content.length > 100 ? '...' : '');
+                    let contentPreview = item.content.substring(0, 100) + (item.content.length > 100 ? '...' : '');
+                    if (searchQuery) {
+                        const regex = new RegExp(`(${searchQuery})`, 'gi');
+                        contentPreview = contentPreview.replace(regex, '<span class="highlight">$1</span>');
+                    }
 
                     historyItem.innerHTML = `
                         <div class="d-flex justify-content-between align-items-start mb-2">
@@ -916,14 +1045,15 @@
                     `;
 
                     historyList.appendChild(historyItem);
-                    historyItem.querySelector('.view-history-btn').addEventListener('click', () => viewHistoryItem(index));
-                    historyItem.querySelector('.delete-history-btn').addEventListener('click', () => deleteHistoryItem(index));
+                    historyItem.querySelector('.view-history-btn').addEventListener('click', () => viewHistoryItem(historyItems.indexOf(item)));
+                    historyItem.querySelector('.delete-history-btn').addEventListener('click', () => deleteHistoryItem(historyItems.indexOf(item)));
                 });
             }
 
             function viewHistoryItem(index) {
                 const item = historyItems[index];
                 resultText.textContent = item.content;
+                comparisonResults.classList.add('d-none');
                 resultContainer.classList.remove('d-none');
                 resultContainer.scrollIntoView({ behavior: 'smooth' });
             }
