@@ -654,17 +654,28 @@
                 try {
                     if (selectedModel === 'lm-studio') {
                         await generateWithLmStudio(prompt);
+                        saveToHistory({
+                            topic: topic,
+                            format: selectedFormat,
+                            tone: selectedTone,
+                            length: selectedLength,
+                            language: selectedLanguage,
+                            content: resultText.textContent,
+                            timestamp: new Date().toISOString()
+                        });
                     } else if (selectedModel === 'gemini') {
                         await generateWithGemini(prompt);
+                        saveToHistory({
+                            topic: topic,
+                            format: selectedFormat,
+                            tone: selectedTone,
+                            length: selectedLength,
+                            language: selectedLanguage,
+                            content: resultText.textContent,
+                            timestamp: new Date().toISOString()
+                        });
                     } else if (selectedModel === 'openrouter') {
                         await generateWithOpenRouter(prompt);
-                    }
-                } catch (error) {
-                    resultText.textContent = `خطا در تولید متن: ${error.message}`;
-                } finally {
-                    generateBtn.disabled = false;
-                    generateBtn.textContent = 'ایجاد پیش‌نویس';
-                    if (resultText.textContent.trim() !== '') {
                         saveToHistory({
                             topic: topic,
                             format: selectedFormat,
@@ -675,6 +686,11 @@
                             timestamp: new Date().toISOString()
                         });
                     }
+                } catch (error) {
+                    resultText.textContent = `خطا در تولید متن: ${error.message}`;
+                } finally {
+                    generateBtn.disabled = false;
+                    generateBtn.textContent = 'ایجاد پیش‌نویس';
                 }
             });
 
@@ -737,9 +753,9 @@
                         resultText.textContent += fullText[currentIndex];
                         currentIndex++;
                     } else {
-                        clearInterval(typeText); // توقف تایپ وقتی متن کامل شد
+                        clearInterval(typeText);
                     }
-                }, 20); // سرعت تایپ: 20 میلی‌ثانیه برای هر کاراکتر
+                }, 20);
             }
 
             async function generateWithOpenRouter(prompt) {
@@ -753,7 +769,7 @@
                     body: JSON.stringify({
                         model: 'openai/gpt-3.5-turbo',
                         messages: [{ role: 'user', content: prompt }],
-                        max_tokens: 4000, // حداکثر توکن برای اطمینان از تکمیل متن
+                        max_tokens: 4000,
                         temperature: 0.7,
                         stream: true
                     }),
