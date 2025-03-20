@@ -215,7 +215,7 @@
         [data-theme="dark"] small { color: #ced4da !important; }
         [data-theme="dark"] .btn-outline-danger { color: #f8d7da; border-color: #dc3545; }
         [data-theme="dark"] .btn-outline-primary { color: #cfe2ff; border-color: var(--primary-color); }
-        [data-theme="dark"] .btn-outline-success { color: #d1e7dd; border-color: #198754; }
+        [data-theme="dark"] .btn-outline-success { color: #AMMAd7dd; border-color: #198754; }
         [data-theme="dark"] .btn-outline-secondary { color: #e9ecef; border-color: #6c757d; }
         [data-theme="dark"] .card-header h5,
         [data-theme="dark"] .card-header h1,
@@ -379,6 +379,8 @@
                 <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">تاریخچه</h5>
                     <div>
+                        <button id="backup-history-btn" class="btn btn-sm btn-outline-success me-2"><i class="bi bi-download"></i> بکاپ</button>
+                        <button id="restore-history-btn" class="btn btn-sm btn-outline-success me-2"><i class="bi bi-upload"></i> بازیابی</button>
                         <button id="clear-history-btn" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> پاک کردن</button>
                     </div>
                 </div>
@@ -420,6 +422,8 @@
             const verifyApiBtns = document.querySelectorAll('.verify-api-btn');
             const historyList = document.getElementById('history-list');
             const clearHistoryBtn = document.getElementById('clear-history-btn');
+            const backupHistoryBtn = document.getElementById('backup-history-btn');
+            const restoreHistoryBtn = document.getElementById('restore-history-btn');
             const noHistoryMessage = document.getElementById('no-history-message');
             const themeToggle = document.getElementById('theme-toggle');
             const themeIcon = document.getElementById('theme-icon');
@@ -746,16 +750,19 @@
                 const fullText = data.candidates[0].content.parts[0].text || 'متن تولید نشد';
 
                 // شبیه‌سازی استریم برای نمایش تدریجی
-                let currentIndex = 0;
-                resultText.textContent = '';
-                const typeText = setInterval(() => {
-                    if (currentIndex < fullText.length) {
-                        resultText.textContent += fullText[currentIndex];
-                        currentIndex++;
-                    } else {
-                        clearInterval(typeText);
-                    }
-                }, 20);
+                return new Promise((resolve) => {
+                    let currentIndex = 0;
+                    resultText.textContent = '';
+                    const typeText = setInterval(() => {
+                        if (currentIndex < fullText.length) {
+                            resultText.textContent += fullText[currentIndex];
+                            currentIndex++;
+                        } else {
+                            clearInterval(typeText);
+                            resolve();
+                        }
+                    }, 20);
+                });
             }
 
             async function generateWithOpenRouter(prompt) {
@@ -797,7 +804,7 @@
                                 fullText += parsed.choices[0].delta.content || '';
                                 resultText.textContent = fullText;
                             } catch (e) {
-                                console.error('خطا در پارシング استریم OpenRouter:', e);
+                                console.error('خطا در پار싱 استریم OpenRouter:', e);
                             }
                         }
                     }
@@ -826,6 +833,14 @@
                 if (confirm('آیا مطمئن هستید که می‌خواهید تاریخچه را پاک کنید؟')) {
                     clearHistory();
                 }
+            });
+
+            backupHistoryBtn.addEventListener('click', function() {
+                backupHistory();
+            });
+
+            restoreHistoryBtn.addEventListener('click', function() {
+                restoreHistory();
             });
 
             function loadHistory() {
@@ -925,6 +940,44 @@
                     localStorage.setItem('textGeneratorHistory', JSON.stringify(historyItems));
                     renderHistory();
                 }
+            }
+
+            function backupHistory() {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(historyItems));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "history_backup.json");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            }
+
+            function restoreHistory() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = function(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const restoredHistory = JSON.parse(e.target.result);
+                            if (Array.isArray(restoredHistory)) {
+                                historyItems = restoredHistory;
+                                localStorage.setItem('textGeneratorHistory', JSON.stringify(historyItems));
+                                renderHistory();
+                                alert('تاریخچه با موفقیت بازیابی شد.');
+                            } else {
+                                alert('فایل انتخاب‌شده معتبر نیست.');
+                            }
+                        } catch (error) {
+                            alert('خطا در بازیابی تاریخچه: ' + error.message);
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+                input.click();
             }
 
             themeToggle.addEventListener('click', function() {
