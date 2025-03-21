@@ -363,6 +363,9 @@
                                     <input type="text" id="api-key-openrouter" class="form-control api-key-input" placeholder="کلید API برای OpenRouter">
                                     <button class="btn btn-sm btn-primary verify-api-btn" data-model="openrouter">تأیید</button>
                                 </div>
+                                <div class="model-api-container">
+                                    <select id="openrouter-model" class="form-control" style="width: 100%;"></select>
+                                </div>
                             </div>
                         </div>
 
@@ -463,12 +466,14 @@
             const themeIcon = document.getElementById('theme-icon');
             const colorOptions = document.getElementById('color-options');
             const colorOptionBtns = document.querySelectorAll('.color-option');
+            const openRouterModelSelect = document.getElementById('openrouter-model');
 
             let selectedFormat = '';
             let selectedTone = '';
             let selectedLength = '';
             let selectedLanguage = 'fa';
             let selectedModel = 'lm-studio';
+            let selectedOpenRouterModel = 'openai/gpt-3.5-turbo'; // پیش‌فرض
             let historyItems = [];
             let apiKeys = {
                 'gemini': localStorage.getItem('api-key-gemini') || '',
@@ -491,11 +496,14 @@
             document.getElementById('api-key-gemini').value = apiKeys['gemini'];
             document.getElementById('api-key-openrouter').value = apiKeys['openrouter'];
 
-            checkAllConnections();
+            init();
 
-            creativityInput.addEventListener('input', function() {
-                creativityValue.textContent = this.value;
-            });
+            function init() {
+                checkAllConnections();
+                loadHistory();
+                loadOpenRouterModels();
+                setupEventListeners();
+            }
 
             async function checkConnection(model) {
                 const statusDot = document.getElementById(`status-${model}`);
@@ -559,6 +567,7 @@
                             isOpenRouterConnected = true;
                             statusDot.className = 'status-dot connected';
                             updateStatus(model, true, 'اتصال موفق');
+                            loadOpenRouterModels();
                         } else {
                             throw new Error('اتصال برقرار نشد');
                         }
@@ -588,7 +597,101 @@
                 }, 20000);
             }
 
-            loadHistory();
+            async function loadOpenRouterModels() {
+                const apiKey = apiKeys['openrouter'];
+                if (!apiKey) {
+                    openRouterModelSelect.innerHTML = '<option value="">ابتدا کلید API را وارد کنید</option>';
+                    return;
+                }
+
+                try {
+                    const response = await fetch('https://openrouter.ai/api/v1/models', {
+                        method: 'GET',
+                        headers: { 'Authorization': `Bearer ${apiKey}` }
+                    });
+                    if (!response.ok) throw new Error('خطا در گرفتن لیست مدل‌ها');
+
+                    const data = await response.json();
+                    const models = data.data;
+                    openRouterModelSelect.innerHTML = '<option value="">یک مدل انتخاب کنید</option>';
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = model.name || model.id;
+                        openRouterModelSelect.appendChild(option);
+                    });
+                    openRouterModelSelect.value = selectedOpenRouterModel;
+                } catch (error) {
+                    console.error('خطا در بارگذاری مدل‌ها:', error);
+                    openRouterModelSelect.innerHTML = '<option value="">خطا در بارگذاری مدل‌ها</option>';
+                }
+            }
+
+            function setupEventListeners() {
+                creativityInput.addEventListener('input', function() {
+                    creativityValue.textContent = this.value;
+                });
+
+                setupButtonSelection(formatBtns, 'format');
+                setupButtonSelection(toneBtns, 'tone');
+                setupButtonSelection(lengthBtns, 'length');
+                setupButtonSelection(languageBtns, 'language');
+                setupButtonSelection(modelBtns, 'model');
+
+                verifyApiBtns.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const model = this.dataset.model;
+                        const apiKeyInput = document.getElementById(`api-key-${model}`);
+                        const apiKey = apiKeyInput.value.trim();
+
+                        if (!apiKey) {
+                            alert('لطفاً کلید API را وارد کنید.');
+                            return;
+                        }
+
+                        apiKeys[model] = apiKey;
+                        localStorage.setItem(`api-key-${model}`, apiKey);
+                        checkConnection(model).then(() => {
+                            alert(`اتصال به ${model} ${isGeminiConnected || isOpenRouterConnected ? 'موفق' : 'ناموفق'} بود.`);
+                        });
+                    });
+                });
+
+                openRouterModelSelect.addEventListener('change', function() {
+                    selectedOpenRouterModel = this.value;
+                    if (selectedModel === 'openrouter' && selectedOpenRouterModel) {
+                        connectionText.textContent = `مدل OpenRouter انتخاب‌شده: ${selectedOpenRouterModel}`;
+                        setTimeout(() => updateStatus(selectedModel, isOpenRouterConnected, ''), 2000);
+                    }
+                });
+
+                generateBtn.addEventListener('click', async function() {
+                    await generateText(false);
+                });
+
+                compareBtn.addEventListener('click', async function() {
+                    await generateText(true);
+                });
+
+                copyBtn.addEventListener('click', copyToClipboard);
+                downloadPdfBtn.addEventListener('click', downloadAsPDF);
+                downloadDocBtn.addEventListener('click', downloadAsDoc);
+                analyzeBtn.addEventListener('click', analyzeText);
+                topicInput.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        generateBtn.click();
+                    }
+                });
+                clearHistoryBtn.addEventListener('click', clearHistoryPrompt);
+                backupHistoryBtn.addEventListener('click', backupHistory);
+                restoreHistoryBtn.addEventListener('click', restoreHistory);
+                historySearch.addEventListener('input', function() {
+                    renderHistory(this.value.trim().toLowerCase());
+                });
+                themeToggle.addEventListener('click', toggleTheme);
+                colorOptionBtns.forEach(btn => btn.addEventListener('click', changeColor));
+            }
 
             function setupButtonSelection(buttons, selectedVar) {
                 buttons.forEach(btn => {
@@ -607,39 +710,6 @@
                 });
             }
 
-            setupButtonSelection(formatBtns, 'format');
-            setupButtonSelection(toneBtns, 'tone');
-            setupButtonSelection(lengthBtns, 'length');
-            setupButtonSelection(languageBtns, 'language');
-            setupButtonSelection(modelBtns, 'model');
-
-            verifyApiBtns.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const model = this.dataset.model;
-                    const apiKeyInput = document.getElementById(`api-key-${model}`);
-                    const apiKey = apiKeyInput.value.trim();
-
-                    if (!apiKey) {
-                        alert('لطفاً کلید API را وارد کنید.');
-                        return;
-                    }
-
-                    apiKeys[model] = apiKey;
-                    localStorage.setItem(`api-key-${model}`, apiKey);
-                    checkConnection(model).then(() => {
-                        alert(`اتصال به ${model} ${isGeminiConnected || isOpenRouterConnected ? 'موفق' : 'ناموفق'} بود.`);
-                    });
-                });
-            });
-
-            generateBtn.addEventListener('click', async function() {
-                await generateText(false);
-            });
-
-            compareBtn.addEventListener('click', async function() {
-                await generateText(true);
-            });
-
             async function generateText(compareMode = false) {
                 const topic = topicInput.value.trim();
                 if (!topic || !selectedFormat || !selectedTone || !selectedLength) {
@@ -657,6 +727,11 @@
 
                 if (modelsToUse.length === 0) {
                     alert('هیچ مدلی متصل نیست.');
+                    return;
+                }
+
+                if (!compareMode && selectedModel === 'openrouter' && !selectedOpenRouterModel) {
+                    alert('لطفاً یک مدل OpenRouter انتخاب کنید.');
                     return;
                 }
 
@@ -824,6 +899,10 @@
 
             async function generateWithOpenRouter(prompt, creativity, maxWords) {
                 const apiKey = apiKeys['openrouter'];
+                if (!selectedOpenRouterModel) {
+                    throw new Error('لطفاً یک مدل OpenRouter انتخاب کنید');
+                }
+
                 const response = await fetch(apiEndpoints['openrouter'], {
                     method: 'POST',
                     headers: {
@@ -831,7 +910,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: 'openai/gpt-3.5-turbo',
+                        model: selectedOpenRouterModel,
                         messages: [{ role: 'user', content: prompt }],
                         max_tokens: maxWords * 2,
                         temperature: creativity,
@@ -881,7 +960,7 @@
                 `).join('');
             }
 
-            copyBtn.addEventListener('click', function() {
+            function copyToClipboard() {
                 navigator.clipboard.writeText(resultText.textContent)
                     .then(() => {
                         const originalText = copyBtn.innerHTML;
@@ -889,9 +968,9 @@
                         setTimeout(() => { copyBtn.innerHTML = originalText; }, 2000);
                     })
                     .catch(err => alert('کپی متن با خطا مواجه شد.'));
-            });
+            }
 
-            downloadPdfBtn.addEventListener('click', function() {
+            function downloadAsPDF() {
                 const doc = new jsPDF();
                 doc.addFileToVFS('Amiri-Regular.ttf', 'https://cdn.fontcdn.ir/Font/Persian/Amiri/Amiri-Regular.ttf');
                 doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
@@ -908,9 +987,9 @@
                     }
                 });
                 doc.save('generated_text.pdf');
-            });
+            }
 
-            downloadDocBtn.addEventListener('click', function() {
+            function downloadAsDoc() {
                 const blob = new Blob([`\ufeff${resultText.textContent}`], { type: 'application/msword' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -920,9 +999,9 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-            });
+            }
 
-            analyzeBtn.addEventListener('click', function() {
+            function analyzeText() {
                 const text = resultText.textContent;
                 const wordCount = text.split(/\s+/).length;
                 const charCount = text.length;
@@ -933,33 +1012,7 @@
                     تعداد جمله‌ها: ${sentenceCount}
                 `;
                 analysisResults.classList.remove('d-none');
-            });
-
-            topicInput.addEventListener('keydown', function(event) {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    generateBtn.click();
-                }
-            });
-
-            clearHistoryBtn.addEventListener('click', function() {
-                if (confirm('آیا مطمئن هستید که می‌خواهید تاریخچه را پاک کنید؟')) {
-                    clearHistory();
-                }
-            });
-
-            backupHistoryBtn.addEventListener('click', function() {
-                backupHistory();
-            });
-
-            restoreHistoryBtn.addEventListener('click', function() {
-                restoreHistory();
-            });
-
-            historySearch.addEventListener('input', function() {
-                const query = this.value.trim().toLowerCase();
-                renderHistory(query);
-            });
+            }
 
             function loadHistory() {
                 const savedHistory = localStorage.getItem('textGeneratorHistory');
@@ -1058,6 +1111,12 @@
                 resultContainer.scrollIntoView({ behavior: 'smooth' });
             }
 
+            function clearHistoryPrompt() {
+                if (confirm('آیا مطمئن هستید که می‌خواهید تاریخچه را پاک کنید؟')) {
+                    clearHistory();
+                }
+            }
+
             function clearHistory() {
                 historyItems = [];
                 localStorage.removeItem('textGeneratorHistory');
@@ -1110,24 +1169,22 @@
                 input.click();
             }
 
-            themeToggle.addEventListener('click', function() {
+            function toggleTheme() {
                 const currentTheme = document.documentElement.getAttribute('data-theme');
                 const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
                 document.documentElement.setAttribute('data-theme', newTheme);
                 localStorage.setItem('theme', newTheme);
                 themeIcon.className = newTheme === 'dark' ? 'bi bi-moon-fill' : 'bi bi-sun-fill';
                 colorOptions.classList.toggle('show');
-            });
+            }
 
-            colorOptionBtns.forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const color = this.getAttribute('data-color');
-                    document.documentElement.setAttribute('data-color', color);
-                    localStorage.setItem('themeColor', color);
-                    colorOptions.classList.remove('show');
-                });
-            });
+            function changeColor(e) {
+                e.stopPropagation();
+                const color = this.getAttribute('data-color');
+                document.documentElement.setAttribute('data-color', color);
+                localStorage.setItem('themeColor', color);
+                colorOptions.classList.remove('show');
+            }
         });
     </script>
 </body>
