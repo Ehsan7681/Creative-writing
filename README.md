@@ -54,8 +54,10 @@
 ---
 
 ## 📸 پیش‌نمایش
+![image](https://github.com/user-attachments/assets/5af97d6e-c35a-4e44-a77d-9a35ebedbee7)
+![image](https://github.com/user-attachments/assets/75070564-fd79-43de-914a-70c8439b602a)
+![image](https://github.com/user-attachments/assets/9ab6dc23-2943-4fe2-aba1-d7bb81021ced)
 
-![تصویر برنامه](https://via.placeholder.com/600x300.png?text=پیش‌نمایش+سامانه+نویسنده+هوشمند)
 *عکس های پروژه*
 
 ---
